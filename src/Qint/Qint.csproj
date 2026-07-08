@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- NuGet package metadata -->
+  <PropertyGroup>
+    <PackageId>Qint</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>SwizzX GmbH</Authors>
+    <Company>SwizzX GmbH</Company>
+    <Product>Qint .NET SDK</Product>
+    <Title>Qint</Title>
+    <Description>Official .NET SDK for the Qint merchant API — create and manage crypto payment intents and verify webhooks. Thin, typed client over the Qint public API.</Description>
+    <PackageProjectUrl>https://github.com/SwizzX-GmbH/qint-dotnet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SwizzX-GmbH/qint-dotnet.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>qint;payments;crypto;stablecoin;webhooks;fintech;sdk;switzerland</PackageTags>
+    <PackageReleaseNotes>Initial 0.1.0 release: typed QintClient (create/get/list intents) and webhook signature verification helpers.</PackageReleaseNotes>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
