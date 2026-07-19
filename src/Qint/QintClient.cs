@@ -74,13 +74,16 @@ public sealed class QintClient : IDisposable
     }
 
     /// <summary>Creates a payment intent.</summary>
-    /// <param name="request">The intent parameters (amount, currency and optional fields).</param>
+    /// <param name="request">The intent parameters (amount, currency, idempotency key and optional fields).</param>
     /// <param name="cancellationToken">A token to cancel the request.</param>
     /// <returns>The created (or idempotently replayed) <see cref="Intent"/>.</returns>
+    /// <exception cref="ArgumentException">The idempotency key is null, empty or whitespace.</exception>
     /// <exception cref="QintApiException">The API returned a non-2xx response.</exception>
     public async Task<Intent> CreateIntentAsync(CreateIntentRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.IdempotencyKey))
+            throw new ArgumentException("An idempotency key is required.", nameof(request));
 
         var body = JsonSerializer.Serialize(request, QintJson.Options);
         using var message = new HttpRequestMessage(HttpMethod.Post, new Uri(_baseUrl, "intents"))

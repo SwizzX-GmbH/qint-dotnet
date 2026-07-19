@@ -16,10 +16,11 @@ public sealed record CreateIntentRequest
     public string? Title { get; init; }
 
     /// <summary>
-    /// Optional idempotency key. Reusing the same key with the same merchant returns
-    /// the originally created intent (HTTP 200) instead of creating a duplicate.
+    /// Idempotency key, unique per merchant (e.g. your order id). Required — the API
+    /// rejects creates without one. Reusing the same key returns the originally
+    /// created intent (HTTP 200) instead of creating a duplicate.
     /// </summary>
-    public string? IdempotencyKey { get; init; }
+    public required string IdempotencyKey { get; init; }
 
     /// <summary>
     /// Optional HTTPS URL (max 500 chars) the hosted checkout returns the buyer to,

@@ -83,15 +83,32 @@ public class QintClientTests
         var handler = new MockHttpMessageHandler(HttpStatusCode.Created, SampleIntentJson);
         using var client = ClientWith(handler);
 
-        await client.CreateIntentAsync(new CreateIntentRequest { Amount = 10m, Currency = "EUR" });
+        await client.CreateIntentAsync(new CreateIntentRequest
+        {
+            Amount = 10m,
+            Currency = "EUR",
+            IdempotencyKey = "order-10",
+        });
 
         using var body = JsonDocument.Parse(handler.LastRequestBody!);
         var root = body.RootElement;
         Assert.True(root.TryGetProperty("amount", out _));
         Assert.True(root.TryGetProperty("currency", out _));
+        Assert.Equal("order-10", root.GetProperty("idempotencyKey").GetString());
         Assert.False(root.TryGetProperty("title", out _));
-        Assert.False(root.TryGetProperty("idempotencyKey", out _));
         Assert.False(root.TryGetProperty("returnUrl", out _));
+    }
+
+    [Fact]
+    public async Task CreateIntentAsync_RejectsMissingIdempotencyKey()
+    {
+        var handler = new MockHttpMessageHandler(HttpStatusCode.Created, SampleIntentJson);
+        using var client = ClientWith(handler);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => client.CreateIntentAsync(
+            new CreateIntentRequest { Amount = 10m, Currency = "EUR", IdempotencyKey = "  " }));
+
+        Assert.Null(handler.LastRequest);
     }
 
     [Fact]
@@ -100,7 +117,12 @@ public class QintClientTests
         var handler = new MockHttpMessageHandler(HttpStatusCode.OK, SampleIntentJson);
         using var client = ClientWith(handler);
 
-        var intent = await client.CreateIntentAsync(new CreateIntentRequest { Amount = 10m, Currency = "USD" });
+        var intent = await client.CreateIntentAsync(new CreateIntentRequest
+        {
+            Amount = 10m,
+            Currency = "USD",
+            IdempotencyKey = "order-10",
+        });
 
         Assert.Equal("pi_abc123", intent.Id);
     }
@@ -196,7 +218,12 @@ public class QintClientTests
         using var client = ClientWith(handler);
 
         var ex = await Assert.ThrowsAsync<QintApiException>(
-            () => client.CreateIntentAsync(new CreateIntentRequest { Amount = 5m, Currency = "CHF" }));
+            () => client.CreateIntentAsync(new CreateIntentRequest
+            {
+                Amount = 5m,
+                Currency = "CHF",
+                IdempotencyKey = "order-5",
+            }));
 
         Assert.Equal(403, ex.StatusCode);
         Assert.Equal("This API key lacks the Write scope.", ex.Detail);

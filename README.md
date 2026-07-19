@@ -38,9 +38,9 @@ var intent = await qint.CreateIntentAsync(new CreateIntentRequest
 {
     Amount = 49.90m,
     Currency = "CHF",
+    IdempotencyKey = "order-1001",  // required — unique per merchant; safe to retry
     Title = "Order #1001",
     ReturnUrl = "https://shop.example/thanks",
-    // IdempotencyKey = orderId,  // safe to retry — replays return the same intent
 });
 
 // 2. Send the buyer to the hosted checkout.
@@ -92,7 +92,12 @@ parsed RFC 7807 problem-details body:
 ```csharp
 try
 {
-    await qint.CreateIntentAsync(new CreateIntentRequest { Amount = 5m, Currency = "CHF" });
+    await qint.CreateIntentAsync(new CreateIntentRequest
+    {
+        Amount = 5m,
+        Currency = "CHF",
+        IdempotencyKey = "order-5",
+    });
 }
 catch (QintApiException ex)
 {
