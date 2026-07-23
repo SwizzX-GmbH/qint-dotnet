@@ -51,7 +51,7 @@ public class QintClientTests
 
         // Method + path.
         Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
-        Assert.Equal("https://qint-api.fly.dev/api/v1/intents", handler.LastRequest.RequestUri!.AbsoluteUri);
+        Assert.Equal("https://api.qint.ch/api/v1/intents", handler.LastRequest.RequestUri!.AbsoluteUri);
 
         // Auth header.
         Assert.Equal("Bearer", handler.LastRequest.Headers.Authorization!.Scheme);
@@ -138,7 +138,7 @@ public class QintClientTests
         var intent = await client.GetIntentAsync("pi_abc123");
 
         Assert.Equal(HttpMethod.Get, handler.LastRequest!.Method);
-        Assert.Equal("https://qint-api.fly.dev/api/v1/intents/pi_abc123", handler.LastRequest.RequestUri!.AbsoluteUri);
+        Assert.Equal("https://api.qint.ch/api/v1/intents/pi_abc123", handler.LastRequest.RequestUri!.AbsoluteUri);
         Assert.Null(handler.LastRequest.Content);
         Assert.Equal("Bearer", handler.LastRequest.Headers.Authorization!.Scheme);
         Assert.Equal("pi_abc123", intent.Id);
@@ -181,7 +181,7 @@ public class QintClientTests
 
         await client.ListIntentsAsync();
 
-        Assert.Equal("https://qint-api.fly.dev/api/v1/intents", handler.LastRequest!.RequestUri!.AbsoluteUri);
+        Assert.Equal("https://api.qint.ch/api/v1/intents", handler.LastRequest!.RequestUri!.AbsoluteUri);
         Assert.Equal(string.Empty, handler.LastRequest.RequestUri.Query);
     }
 
@@ -255,7 +255,7 @@ public class QintClientTests
     [Fact]
     public void DefaultBaseUrl_IsTheFlyEndpoint()
     {
-        Assert.Equal("https://qint-api.fly.dev/api/v1", QintClient.DefaultBaseUrl.AbsoluteUri);
+        Assert.Equal("https://api.qint.ch/api/v1", QintClient.DefaultBaseUrl.AbsoluteUri);
     }
 
     [Fact]

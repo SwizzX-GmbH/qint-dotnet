@@ -17,8 +17,8 @@ namespace Qint;
 /// </remarks>
 public sealed class QintClient : IDisposable
 {
-    /// <summary>Default API base URL (<c>https://qint-api.fly.dev/api/v1</c>).</summary>
-    public static readonly Uri DefaultBaseUrl = new("https://qint-api.fly.dev/api/v1");
+    /// <summary>Default API base URL (<c>https://api.qint.ch/api/v1</c>).</summary>
+    public static readonly Uri DefaultBaseUrl = new("https://api.qint.ch/api/v1");
 
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
     private static readonly string UserAgent = "qint-dotnet/" + typeof(QintClient).Assembly.GetName().Version?.ToString(3);

@@ -65,7 +65,7 @@ Console.WriteLine($"{page.Total} settled intents");
 
 ### Base URL and timeout
 
-The client defaults to `https://qint-api.fly.dev/api/v1` (a dedicated `api.qint.ch`
+The client defaults to `https://api.qint.ch/api/v1` (a dedicated `api.qint.ch`
 endpoint is coming). Override the base URL or timeout when you need to:
 
 ```csharp
