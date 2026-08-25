@@ -261,11 +261,12 @@ public class QintClientTests
     [Fact]
     public async Task CustomBaseUrl_IsHonored()
     {
+        // A base DISTINCT from the default — this test is vacuous otherwise.
         var handler = new MockHttpMessageHandler(HttpStatusCode.OK, SampleIntentJson);
-        using var client = new QintClient(ApiKey, new HttpClient(handler), new Uri("https://api.qint.ch/api/v1"));
+        using var client = new QintClient(ApiKey, new HttpClient(handler), new Uri("https://api.example.test/v1"));
 
         await client.GetIntentAsync("pi_abc123");
 
-        Assert.Equal("https://api.qint.ch/api/v1/intents/pi_abc123", handler.LastRequest!.RequestUri!.AbsoluteUri);
+        Assert.Equal("https://api.example.test/v1/intents/pi_abc123", handler.LastRequest!.RequestUri!.AbsoluteUri);
     }
 }

@@ -65,8 +65,8 @@ Console.WriteLine($"{page.Total} settled intents");
 
 ### Base URL and timeout
 
-The client defaults to `https://api.qint.ch/api/v1` (a dedicated `api.qint.ch`
-endpoint is coming). Override the base URL or timeout when you need to:
+The client defaults to `https://api.qint.ch/api/v1` — the stable production
+hostname. Override the base URL or timeout when you need to:
 
 ```csharp
 var qint = new QintClient("qk_live_...", baseUrl: new Uri("https://api.qint.ch/api/v1"),
