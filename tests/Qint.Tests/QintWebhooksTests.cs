@@ -105,6 +105,53 @@ public class QintWebhooksTests
     }
 
     [Fact]
+    public void ParseEvent_AcceptedUnderpayment_MapsNewFields()
+    {
+        const string body = """
+        {
+          "type": "payment.status",
+          "intentId": "pi_short",
+          "status": "settled",
+          "amount": 100.00,
+          "currency": "GBP",
+          "assetSymbol": "USDT",
+          "underpaid": true,
+          "receivedAmount": 98.00,
+          "underpaidBps": 200,
+          "expectedCryptoAmount": "126.58227848",
+          "receivedCryptoAmount": "124.05063291",
+          "invoiceId": null,
+          "paymentLinkId": null,
+          "reversed": false,
+          "reversedAt": null,
+          "occurredAt": "2026-07-08T10:15:00+00:00"
+        }
+        """;
+
+        var evt = QintWebhooks.ParseEvent(body);
+
+        Assert.Equal("GBP", evt.Currency);
+        Assert.True(evt.Underpaid);
+        Assert.Equal(98.00m, evt.ReceivedAmount);
+        Assert.Equal(200, evt.UnderpaidBps);
+        Assert.Equal(126.58227848m, evt.ExpectedCryptoAmount);
+        Assert.Equal(124.05063291m, evt.ReceivedCryptoAmount);
+        Assert.False(evt.Reversed);
+        Assert.Null(evt.ReversedAt);
+    }
+
+    [Fact]
+    public void ParseEvent_WithoutUnderpaymentFields_LeavesThemNull()
+    {
+        var evt = QintWebhooks.ParseEvent(EventBody);
+
+        Assert.Null(evt.ReceivedAmount);
+        Assert.Null(evt.UnderpaidBps);
+        Assert.Null(evt.ReversedAt);
+        Assert.False(evt.Reversed);
+    }
+
+    [Fact]
     public void ConstructEvent_ValidSignature_ReturnsParsedEvent()
     {
         var signature = Sign(EventBody, Secret);

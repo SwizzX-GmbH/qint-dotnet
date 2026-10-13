@@ -20,7 +20,7 @@ public sealed record PaymentStatusEvent
     /// <summary>Fiat amount of the intent.</summary>
     public decimal Amount { get; init; }
 
-    /// <summary>Fiat currency code of the intent.</summary>
+    /// <summary>Fiat currency code of the intent — <c>CHF</c>, <c>EUR</c>, <c>USD</c> or <c>GBP</c>.</summary>
     public required string Currency { get; init; }
 
     /// <summary>Crypto asset selected for the intent, if any.</summary>
@@ -38,9 +38,30 @@ public sealed record PaymentStatusEvent
     /// <summary>True when the buyer paid less crypto than expected.</summary>
     public bool Underpaid { get; init; }
 
-    /// <summary>The crypto amount the intent expected, when known.</summary>
+    /// <summary>
+    /// The fiat amount actually paid, in <see cref="Currency"/>, when the payment settled
+    /// short within the merchant's accepted underpayment. Null otherwise.
+    /// </summary>
+    public decimal? ReceivedAmount { get; init; }
+
+    /// <summary>How short the payment was, in basis points of the invoice. Null unless underpaid.</summary>
+    public int? UnderpaidBps { get; init; }
+
+    /// <summary>
+    /// The crypto amount the intent expected, when known. Sent on the wire as an
+    /// 8-decimal-place string; parsed into a decimal.
+    /// </summary>
     public decimal? ExpectedCryptoAmount { get; init; }
 
-    /// <summary>The crypto amount actually observed by the gateway, when known.</summary>
+    /// <summary>
+    /// The crypto amount actually observed by the gateway, when known. Sent on the wire
+    /// as an 8-decimal-place string; parsed into a decimal.
+    /// </summary>
     public decimal? ReceivedCryptoAmount { get; init; }
+
+    /// <summary>True when the payment was reversed after settlement (the status stays settled).</summary>
+    public bool Reversed { get; init; }
+
+    /// <summary>When the payment was reversed after settlement, if it was.</summary>
+    public DateTimeOffset? ReversedAt { get; init; }
 }

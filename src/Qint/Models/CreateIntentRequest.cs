@@ -9,7 +9,7 @@ public sealed record CreateIntentRequest
     /// <summary>Fiat amount to collect. Required.</summary>
     public required decimal Amount { get; init; }
 
-    /// <summary>Fiat currency code — one of <c>CHF</c>, <c>EUR</c> or <c>USD</c>. Required.</summary>
+    /// <summary>Fiat currency code — one of <c>CHF</c>, <c>EUR</c>, <c>USD</c> or <c>GBP</c> (see <see cref="QintCurrencies"/>). Required.</summary>
     public required string Currency { get; init; }
 
     /// <summary>Optional title shown on the hosted checkout.</summary>

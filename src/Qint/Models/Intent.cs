@@ -15,7 +15,7 @@ public sealed record Intent
     /// <summary>Fiat amount to collect, in the smallest sensible decimal (not minor units).</summary>
     public decimal Amount { get; init; }
 
-    /// <summary>Fiat currency code — one of <c>CHF</c>, <c>EUR</c> or <c>USD</c>.</summary>
+    /// <summary>Fiat currency code — one of <c>CHF</c>, <c>EUR</c>, <c>USD</c> or <c>GBP</c> (see <see cref="QintCurrencies"/>).</summary>
     public required string Currency { get; init; }
 
     /// <summary>Optional human-readable title shown on the hosted checkout.</summary>
@@ -47,4 +47,35 @@ public sealed record Intent
 
     /// <summary>When funds were settled to the merchant, if they have been.</summary>
     public DateTimeOffset? SettledAt { get; init; }
+
+    /// <summary>
+    /// When the execution partner reversed the payment after settlement. The status
+    /// stays <see cref="IntentStatus.Settled"/>; treat a reversed payment as not paid.
+    /// Null otherwise.
+    /// </summary>
+    public DateTimeOffset? ReversedAt { get; init; }
+
+    /// <summary>Qint's fee on this payment, in <see cref="Currency"/>. Null when not sent.</summary>
+    public decimal? FeeAmount { get; init; }
+
+    /// <summary>What the merchant is credited once the payment settles, in <see cref="Currency"/>. Null when not sent.</summary>
+    public decimal? NetAmount { get; init; }
+
+    /// <summary>The amount the execution partner booked as realised. Null until booked.</summary>
+    public decimal? SettledAmount { get; init; }
+
+    /// <summary>
+    /// The fiat amount actually paid, in <see cref="Currency"/>, when the payment settled
+    /// short within the merchant's accepted underpayment. Null otherwise.
+    /// </summary>
+    public decimal? ReceivedAmount { get; init; }
+
+    /// <summary>How short the payment was, in basis points of the invoice. Null unless underpaid.</summary>
+    public int? UnderpaidBps { get; init; }
+
+    /// <summary>USDT credited to the merchant balance for this payment. Null until credited.</summary>
+    public decimal? CreditUsdt { get; init; }
+
+    /// <summary>The rate the credit was booked at, fiat per 1 USDT. Null until credited.</summary>
+    public decimal? CreditRate { get; init; }
 }

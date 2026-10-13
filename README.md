@@ -37,7 +37,7 @@ var qint = new QintClient("qk_live_...");
 var intent = await qint.CreateIntentAsync(new CreateIntentRequest
 {
     Amount = 49.90m,
-    Currency = "CHF",
+    Currency = "CHF",               // CHF, EUR, USD or GBP (QintCurrencies.*)
     IdempotencyKey = "order-1001",  // required — unique per merchant; safe to retry
     Title = "Order #1001",
     ReturnUrl = "https://shop.example/thanks",
@@ -86,8 +86,9 @@ When you pass your own `HttpClient` the SDK does not dispose it or mutate its
 
 ### Errors
 
-Any non-2xx response throws `QintApiException`, which carries the HTTP status code and the
-parsed RFC 7807 problem-details body:
+Any non-2xx response throws `QintApiException`, which carries the HTTP status code, the
+parsed RFC 7807 problem-details body and, when the API sends one, a machine-readable
+`Code`:
 
 ```csharp
 try
@@ -105,6 +106,35 @@ catch (QintApiException ex)
     // e.g. 403: This API key lacks the Write scope.
 }
 ```
+
+### Payment limits
+
+Each payment must be between CHF 10 and CHF 100'000 (or the equivalent in EUR, USD or
+GBP). Outside that range `CreateIntentAsync` throws a `400` with
+`ex.Code == QintErrorCodes.AmountOutOfRange` (`"amount_out_of_range"`) and the numbers on
+`ex.ProblemDetails.MinChf`, `MaxChf` and `AmountChf`. If no exchange rate is available to
+judge a non-CHF amount it throws a `503` with `ex.Code == QintErrorCodes.RateUnavailable`
+(`"rate_unavailable"`) — retry in a minute. Other problem members are in
+`ex.ProblemDetails.Extensions`.
+
+```csharp
+catch (QintApiException ex) when (ex.Code == QintErrorCodes.AmountOutOfRange)
+{
+    var p = ex.ProblemDetails!;
+    Console.Error.WriteLine($"{ex.Detail} (allowed CHF {p.MinChf}–{p.MaxChf}, got CHF {p.AmountChf})");
+}
+```
+
+### Underpaid payments
+
+A payment that comes up short but within your accepted underpayment still settles. The
+`payment.status` webhook then carries `Underpaid = true`, `ReceivedAmount` (the fiat amount
+actually paid, in the intent's currency) and `UnderpaidBps` (how short, in basis points of
+the invoice); both are `null` otherwise. `Intent` declares the same two fields plus
+`FeeAmount`, `NetAmount`, `SettledAmount`, `CreditUsdt`, `CreditRate` and `ReversedAt` — all
+nullable, and `null` whenever the response does not include them. A non-null `ReversedAt`
+means the payment was reversed after settlement: treat it as not paid even though its
+status stays `Settled`.
 
 ## Verifying webhooks
 

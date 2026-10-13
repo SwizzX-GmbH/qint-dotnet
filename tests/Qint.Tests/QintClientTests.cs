@@ -144,6 +144,83 @@ public class QintClientTests
         Assert.Equal("pi_abc123", intent.Id);
     }
 
+    [Fact]
+    public async Task GetIntentAsync_ParsesFeeUnderpaymentAndReversalFields()
+    {
+        const string json = """
+        {
+          "id": "pi_abc123",
+          "status": "settled",
+          "amount": 100.00,
+          "currency": "GBP",
+          "checkoutUrl": "https://checkout.qint.ch/pay/pi_abc123",
+          "createdAt": "2026-07-08T10:00:00+00:00",
+          "expiresAt": "2026-07-08T10:30:00+00:00",
+          "settledAt": "2026-07-08T10:20:00+00:00",
+          "feeAmount": 0.98,
+          "netAmount": 97.02,
+          "settledAmount": null,
+          "receivedAmount": 98.00,
+          "underpaidBps": 200,
+          "creditUsdt": 108.9,
+          "creditRate": 0.8909,
+          "reversedAt": "2026-07-09T09:00:00+00:00"
+        }
+        """;
+        var handler = new MockHttpMessageHandler(HttpStatusCode.OK, json);
+        using var client = ClientWith(handler);
+
+        var intent = await client.GetIntentAsync("pi_abc123");
+
+        Assert.Equal(QintCurrencies.Gbp, intent.Currency);
+        Assert.Equal(0.98m, intent.FeeAmount);
+        Assert.Equal(97.02m, intent.NetAmount);
+        Assert.Null(intent.SettledAmount);
+        Assert.Equal(98.00m, intent.ReceivedAmount);
+        Assert.Equal(200, intent.UnderpaidBps);
+        Assert.Equal(108.9m, intent.CreditUsdt);
+        Assert.Equal(0.8909m, intent.CreditRate);
+        Assert.Equal(new DateTimeOffset(2026, 7, 9, 9, 0, 0, TimeSpan.Zero), intent.ReversedAt);
+    }
+
+    [Fact]
+    public async Task GetIntentAsync_WithoutNewFields_LeavesThemNull()
+    {
+        var handler = new MockHttpMessageHandler(HttpStatusCode.OK, SampleIntentJson);
+        using var client = ClientWith(handler);
+
+        var intent = await client.GetIntentAsync("pi_abc123");
+
+        Assert.Null(intent.FeeAmount);
+        Assert.Null(intent.NetAmount);
+        Assert.Null(intent.SettledAmount);
+        Assert.Null(intent.ReceivedAmount);
+        Assert.Null(intent.UnderpaidBps);
+        Assert.Null(intent.CreditUsdt);
+        Assert.Null(intent.CreditRate);
+        Assert.Null(intent.ReversedAt);
+    }
+
+    [Fact]
+    public async Task CreateIntentAsync_AcceptsGbp()
+    {
+        var handler = new MockHttpMessageHandler(HttpStatusCode.Created,
+            SampleIntentJson.Replace("\"CHF\"", "\"GBP\""));
+        using var client = ClientWith(handler);
+
+        var intent = await client.CreateIntentAsync(new CreateIntentRequest
+        {
+            Amount = 25m,
+            Currency = QintCurrencies.Gbp,
+            IdempotencyKey = "order-gbp",
+        });
+
+        using var body = JsonDocument.Parse(handler.LastRequestBody!);
+        Assert.Equal("GBP", body.RootElement.GetProperty("currency").GetString());
+        Assert.Equal("GBP", intent.Currency);
+        Assert.Equal(new[] { "CHF", "EUR", "USD", "GBP" }, QintCurrencies.All);
+    }
+
     // ── list ─────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -229,6 +306,72 @@ public class QintClientTests
         Assert.Equal("This API key lacks the Write scope.", ex.Detail);
         Assert.Equal("This API key lacks the Write scope.", ex.Message);
         Assert.Equal("Forbidden", ex.ProblemDetails!.Title);
+        Assert.Null(ex.Code);
+    }
+
+    [Fact]
+    public async Task AmountOutOfRange_ExposesCodeAndLimits()
+    {
+        const string problemJson = """
+        {
+          "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+          "title": "Amount out of range",
+          "status": 400,
+          "detail": "Payments must be between CHF 10 and CHF 100'000 (or the equivalent). This amount is CHF 5.00.",
+          "traceId": "00-abc-def-00",
+          "code": "amount_out_of_range",
+          "minChf": 10,
+          "maxChf": 100000,
+          "amountChf": 5.00
+        }
+        """;
+        var handler = new MockHttpMessageHandler(HttpStatusCode.BadRequest, problemJson, "application/problem+json");
+        using var client = ClientWith(handler);
+
+        var ex = await Assert.ThrowsAsync<QintApiException>(
+            () => client.CreateIntentAsync(new CreateIntentRequest
+            {
+                Amount = 5m,
+                Currency = "CHF",
+                IdempotencyKey = "order-5",
+            }));
+
+        Assert.Equal(400, ex.StatusCode);
+        Assert.Equal(QintErrorCodes.AmountOutOfRange, ex.Code);
+        Assert.Equal(10m, ex.ProblemDetails!.MinChf);
+        Assert.Equal(100000m, ex.ProblemDetails.MaxChf);
+        Assert.Equal(5.00m, ex.ProblemDetails.AmountChf);
+        Assert.Equal("00-abc-def-00", ex.ProblemDetails.Extensions!["traceId"].GetString());
+        Assert.Equal(
+            "Payments must be between CHF 10 and CHF 100'000 (or the equivalent). This amount is CHF 5.00.",
+            ex.Message);
+    }
+
+    [Fact]
+    public async Task RateUnavailable_ExposesCode()
+    {
+        const string problemJson = """
+        {
+          "title": "Exchange rate unavailable",
+          "status": 503,
+          "detail": "Exchange rate unavailable — try again in a minute.",
+          "code": "rate_unavailable"
+        }
+        """;
+        var handler = new MockHttpMessageHandler(HttpStatusCode.ServiceUnavailable, problemJson, "application/problem+json");
+        using var client = ClientWith(handler);
+
+        var ex = await Assert.ThrowsAsync<QintApiException>(
+            () => client.CreateIntentAsync(new CreateIntentRequest
+            {
+                Amount = 50m,
+                Currency = QintCurrencies.Gbp,
+                IdempotencyKey = "order-50",
+            }));
+
+        Assert.Equal(503, ex.StatusCode);
+        Assert.Equal(QintErrorCodes.RateUnavailable, ex.Code);
+        Assert.Null(ex.ProblemDetails!.MinChf);
     }
 
     [Fact]

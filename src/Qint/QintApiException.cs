@@ -17,6 +17,13 @@ public sealed class QintApiException : Exception
     /// <summary>The problem-details <c>detail</c> message, if any.</summary>
     public string? Detail => ProblemDetails?.Detail;
 
+    /// <summary>
+    /// The machine-readable problem <c>code</c>, if any — for example
+    /// <see cref="QintErrorCodes.AmountOutOfRange"/> (400) or
+    /// <see cref="QintErrorCodes.RateUnavailable"/> (503).
+    /// </summary>
+    public string? Code => ProblemDetails?.Code;
+
     /// <summary>Creates a new <see cref="QintApiException"/>.</summary>
     /// <param name="statusCode">HTTP status code of the failed response.</param>
     /// <param name="problemDetails">Parsed problem-details body, if any.</param>
