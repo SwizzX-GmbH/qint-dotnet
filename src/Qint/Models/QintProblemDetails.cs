@@ -29,6 +29,9 @@ public sealed record QintProblemDetails
     /// </summary>
     public string? Code { get; init; }
 
+    /// <summary>Request correlation id — include it in support requests.</summary>
+    public string? TraceId { get; init; }
+
     /// <summary><c>amount_out_of_range</c>: the smallest allowed payment, in CHF.</summary>
     public decimal? MinChf { get; init; }
 
@@ -38,7 +41,7 @@ public sealed record QintProblemDetails
     /// <summary><c>amount_out_of_range</c>: the requested amount converted to CHF.</summary>
     public decimal? AmountChf { get; init; }
 
-    /// <summary>Any other top-level members of the problem body (for example <c>traceId</c>).</summary>
+    /// <summary>Any other top-level members of the problem body .</summary>
     [JsonExtensionData]
     public IDictionary<string, JsonElement>? Extensions { get; init; }
 }

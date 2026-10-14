@@ -32,6 +32,12 @@ public static class QintWebhooks
     /// <summary>The event-id / de-duplication header name (<c>X-Qint-Event-Id</c>).</summary>
     public const string EventIdHeaderName = "X-Qint-Event-Id";
 
+    /// <summary>The <c>payment.status</c> event type.</summary>
+    public const string PaymentStatusEventType = "payment.status";
+
+    /// <summary>The <c>ping</c> test event type (dashboard → <b>Send test event</b>).</summary>
+    public const string PingEventType = "ping";
+
     private const string SignaturePrefix = "sha256=";
 
     /// <summary>
@@ -79,23 +85,58 @@ public static class QintWebhooks
     /// <summary>
     /// Parses a webhook request body into a <see cref="PaymentStatusEvent"/>. Does not verify
     /// the signature — call <see cref="VerifyWebhookSignature(string, string, string)"/> first, or use
-    /// <see cref="ConstructEvent(string, string, string)"/> to do both.
+    /// <see cref="ConstructEvent(string, string, string)"/> to do both. To handle <c>ping</c> and
+    /// future event types as well, use <see cref="ParseWebhook(string)"/>.
     /// </summary>
     /// <param name="rawBody">The webhook request body.</param>
     /// <returns>The parsed <see cref="PaymentStatusEvent"/>.</returns>
     /// <exception cref="ArgumentException"><paramref name="rawBody"/> is null or empty.</exception>
-    /// <exception cref="JsonException">The body is not valid JSON for a payment.status event.</exception>
+    /// <exception cref="JsonException">The body is not valid JSON for a payment.status event (including a <c>ping</c> or another event type).</exception>
     public static PaymentStatusEvent ParseEvent(string rawBody)
+    {
+        var evt = ParseWebhook(rawBody);
+        return evt.PaymentStatus ?? throw new JsonException(
+            $"The webhook event type is '{evt.Type}', not '{PaymentStatusEventType}'. Use QintWebhooks.ParseWebhook to handle every event type.");
+    }
+
+    /// <summary>
+    /// Parses any webhook request body into a <see cref="WebhookEvent"/>: <c>payment.status</c>
+    /// and <c>ping</c> are typed; unknown event types parse without error (acknowledge and
+    /// ignore them). Does not verify the signature.
+    /// </summary>
+    /// <param name="rawBody">The webhook request body.</param>
+    /// <returns>The parsed <see cref="WebhookEvent"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="rawBody"/> is null or empty.</exception>
+    /// <exception cref="JsonException">The body is not a JSON object, or a known event type is malformed.</exception>
+    public static WebhookEvent ParseWebhook(string rawBody)
     {
         if (string.IsNullOrWhiteSpace(rawBody))
             throw new ArgumentException("The webhook body is empty.", nameof(rawBody));
 
-        var evt = JsonSerializer.Deserialize<PaymentStatusEvent>(rawBody, QintJson.Options);
-        return evt ?? throw new JsonException("The webhook body deserialized to null.");
+        using var doc = JsonDocument.Parse(rawBody);
+        var root = doc.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+            throw new JsonException("The webhook body is not a JSON object.");
+
+        var type = root.TryGetProperty("type", out var t) && t.ValueKind == JsonValueKind.String
+            ? t.GetString() ?? string.Empty
+            : string.Empty;
+
+        return new WebhookEvent
+        {
+            Type = type,
+            Raw = root.Clone(),
+            PaymentStatus = type == PaymentStatusEventType
+                ? root.Deserialize<PaymentStatusEvent>(QintJson.Options) ?? throw new JsonException("The webhook body deserialized to null.")
+                : null,
+            Ping = type == PingEventType
+                ? root.Deserialize<PingEvent>(QintJson.Options) ?? throw new JsonException("The webhook body deserialized to null.")
+                : null,
+        };
     }
 
     /// <summary>
-    /// Verifies the signature and parses the event in one step — the recommended entry point.
+    /// Verifies the signature and parses the <c>payment.status</c> event in one step.
     /// </summary>
     /// <param name="rawBody">The exact webhook request body.</param>
     /// <param name="signatureHeader">The <c>X-Qint-Signature</c> header value.</param>
@@ -109,5 +150,23 @@ public static class QintWebhooks
             throw new QintWebhookSignatureException("The webhook signature could not be verified.");
 
         return ParseEvent(rawBody);
+    }
+
+    /// <summary>
+    /// Verifies the signature and parses any event type in one step — the recommended entry
+    /// point for a webhook endpoint (it also accepts the dashboard's <c>ping</c> test event).
+    /// </summary>
+    /// <param name="rawBody">The exact webhook request body.</param>
+    /// <param name="signatureHeader">The <c>X-Qint-Signature</c> header value.</param>
+    /// <param name="secret">Your endpoint signing secret (<c>whsec_...</c>).</param>
+    /// <returns>The verified, parsed <see cref="WebhookEvent"/>.</returns>
+    /// <exception cref="QintWebhookSignatureException">The signature did not match.</exception>
+    /// <exception cref="JsonException">The body is not a JSON object, or a known event type is malformed.</exception>
+    public static WebhookEvent ConstructWebhook(string rawBody, string? signatureHeader, string secret)
+    {
+        if (!VerifyWebhookSignature(rawBody, signatureHeader, secret))
+            throw new QintWebhookSignatureException("The webhook signature could not be verified.");
+
+        return ParseWebhook(rawBody);
     }
 }

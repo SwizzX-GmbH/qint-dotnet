@@ -55,10 +55,22 @@ public sealed record Intent
     /// </summary>
     public DateTimeOffset? ReversedAt { get; init; }
 
-    /// <summary>Qint's fee on this payment, in <see cref="Currency"/>. Null when not sent.</summary>
+    /// <summary>
+    /// True once the payment has been reversed after settlement (<see cref="ReversedAt"/> is set).
+    /// A flag, not a status: <see cref="Status"/> stays <see cref="IntentStatus.Settled"/>.
+    /// </summary>
+    public bool Reversed { get; init; }
+
+    /// <summary>
+    /// True when the buyer sent less crypto than quoted. A flag, not a status — see
+    /// <see cref="ReceivedAmount"/> and <see cref="UnderpaidBps"/>.
+    /// </summary>
+    public bool Underpaid { get; init; }
+
+    /// <summary>Qint's fee on this payment, in <see cref="Currency"/>. Null until the payment is settled.</summary>
     public decimal? FeeAmount { get; init; }
 
-    /// <summary>What the merchant is credited once the payment settles, in <see cref="Currency"/>. Null when not sent.</summary>
+    /// <summary>What the merchant is credited for this payment, in <see cref="Currency"/>. Null until the payment is settled.</summary>
     public decimal? NetAmount { get; init; }
 
     /// <summary>The amount the execution partner booked as realised. Null until booked.</summary>
@@ -70,12 +82,23 @@ public sealed record Intent
     /// </summary>
     public decimal? ReceivedAmount { get; init; }
 
-    /// <summary>How short the payment was, in basis points of the invoice. Null unless underpaid.</summary>
+    /// <summary>How short the payment was, in basis points of <see cref="Amount"/>. Null unless underpaid.</summary>
     public int? UnderpaidBps { get; init; }
 
-    /// <summary>USDT credited to the merchant balance for this payment. Null until credited.</summary>
+    /// <summary>
+    /// The amount credited to the merchant balance for this payment, in <see cref="CreditAsset"/>
+    /// (6 decimal places). The name predates USDC: for a merchant settling in USDC this is USDC.
+    /// Null until the payment is settled and credited.
+    /// </summary>
     public decimal? CreditUsdt { get; init; }
 
-    /// <summary>The rate the credit was booked at, fiat per 1 USDT. Null until credited.</summary>
+    /// <summary>Fiat units of <see cref="Currency"/> per 1 unit of <see cref="CreditAsset"/> used for the credit. Null until credited.</summary>
     public decimal? CreditRate { get; init; }
+
+    /// <summary>
+    /// The stablecoin the credit was booked in — the merchant's settlement asset at the moment of
+    /// crediting: <see cref="QintSettlementAssets.Usdc"/> for merchants registered in the EU,
+    /// <see cref="QintSettlementAssets.Usdt"/> otherwise. Null until credited.
+    /// </summary>
+    public string? CreditAsset { get; init; }
 }

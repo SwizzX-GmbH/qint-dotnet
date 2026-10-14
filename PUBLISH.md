@@ -14,7 +14,7 @@ a release. Run them from a clean checkout of the tag you intend to ship.
 ## 1. Set the version
 
 The version lives in [`src/Qint/Qint.csproj`](src/Qint/Qint.csproj) as `<Version>`.
-It is `0.1.0` today. Bump it (semver) for every release and commit the change:
+It is `0.2.0` today. Bump it (semver) for every release and commit the change:
 
 ```bash
 # edit <Version> in src/Qint/Qint.csproj, then:
@@ -33,19 +33,19 @@ dotnet pack  src/Qint/Qint.csproj -c Release -o artifacts
 
 This produces:
 
-- `artifacts/Qint.0.1.0.nupkg`
-- `artifacts/Qint.0.1.0.snupkg` (symbols; `README.md` and the MIT license are embedded)
+- `artifacts/Qint.0.2.0.nupkg`
+- `artifacts/Qint.0.2.0.snupkg` (symbols; `README.md` and the MIT license are embedded)
 
 Sanity-check the contents:
 
 ```bash
-unzip -l artifacts/Qint.0.1.0.nupkg
+unzip -l artifacts/Qint.0.2.0.nupkg
 ```
 
 ## 3. Push to NuGet.org
 
 ```bash
-dotnet nuget push artifacts/Qint.0.1.0.nupkg \
+dotnet nuget push artifacts/Qint.0.2.0.nupkg \
   --api-key "$NUGET_API_KEY" \
   --source https://api.nuget.org/v3/index.json
 ```
@@ -58,7 +58,7 @@ sits in the same folder. NuGet.org validation and indexing usually take a few mi
 ```bash
 # In a throwaway project:
 dotnet new console -o /tmp/qint-smoke && cd /tmp/qint-smoke
-dotnet add package Qint --version 0.1.0
+dotnet add package Qint --version 0.2.0
 ```
 
 Then confirm the listing at https://www.nuget.org/packages/Qint.

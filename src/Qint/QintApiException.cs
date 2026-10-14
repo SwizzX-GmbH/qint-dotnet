@@ -24,6 +24,9 @@ public sealed class QintApiException : Exception
     /// </summary>
     public string? Code => ProblemDetails?.Code;
 
+    /// <summary>The problem-details <c>traceId</c>, if any — include it in support requests.</summary>
+    public string? TraceId => ProblemDetails?.TraceId;
+
     /// <summary>Creates a new <see cref="QintApiException"/>.</summary>
     /// <param name="statusCode">HTTP status code of the failed response.</param>
     /// <param name="problemDetails">Parsed problem-details body, if any.</param>
