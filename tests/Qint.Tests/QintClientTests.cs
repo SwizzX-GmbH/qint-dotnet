@@ -341,7 +341,8 @@ public class QintClientTests
         Assert.Equal(10m, ex.ProblemDetails!.MinChf);
         Assert.Equal(100000m, ex.ProblemDetails.MaxChf);
         Assert.Equal(5.00m, ex.ProblemDetails.AmountChf);
-        Assert.Equal("00-abc-def-00", ex.ProblemDetails.Extensions!["traceId"].GetString());
+        Assert.Equal("00-abc-def-00", ex.TraceId);
+        Assert.Equal("00-abc-def-00", ex.ProblemDetails.TraceId);
         Assert.Equal(
             "Payments must be between CHF 10 and CHF 100'000 (or the equivalent). This amount is CHF 5.00.",
             ex.Message);
@@ -412,4 +413,167 @@ public class QintClientTests
 
         Assert.Equal("https://api.example.test/v1/intents/pi_abc123", handler.LastRequest!.RequestUri!.AbsoluteUri);
     }
+
+    // ── 2026-10 API sync ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetIntentAsync_SettledUsdcIntent_MapsCreditAssetAndFlags()
+    {
+        const string json = """
+        {
+          "id": "pi_eu1", "status": "settled", "amount": 100.00, "currency": "EUR",
+          "title": null, "assetSymbol": "USDC", "cryptoAmount": "108.90000000",
+          "depositAddress": "0xabc", "checkoutUrl": "https://checkout.qint.ch/pay/pi_eu1",
+          "returnUrl": null, "createdAt": "2026-10-14T09:00:00+00:00",
+          "expiresAt": "2026-10-14T09:15:00+00:00", "confirmedAt": "2026-10-14T09:05:00+00:00",
+          "settledAt": "2026-10-14T09:06:00+00:00", "reversedAt": null,
+          "reversed": false, "underpaid": true,
+          "feeAmount": 0.50, "netAmount": 99.20, "settledAmount": 99.70,
+          "receivedAmount": 99.70, "underpaidBps": 30,
+          "creditUsdt": 108.123456, "creditRate": 0.9175, "creditAsset": "USDC",
+          "someFutureField": {"nested": [1, 2, 3]}
+        }
+        """;
+        var handler = new MockHttpMessageHandler(HttpStatusCode.OK, json);
+        using var client = ClientWith(handler);
+
+        var intent = await client.GetIntentAsync("pi_eu1");
+
+        Assert.Equal(IntentStatus.Settled, intent.Status);
+        Assert.Equal(QintSettlementAssets.Usdc, intent.CreditAsset);
+        Assert.Equal(108.123456m, intent.CreditUsdt);
+        Assert.Equal(0.9175m, intent.CreditRate);
+        Assert.Equal(0.50m, intent.FeeAmount);
+        Assert.Equal(99.20m, intent.NetAmount);
+        Assert.True(intent.Underpaid);
+        Assert.False(intent.Reversed);
+        Assert.Equal(30, intent.UnderpaidBps);
+    }
+
+    [Fact]
+    public async Task GetIntentAsync_UnsettledIntent_LeavesEconomicsNull()
+    {
+        const string json = """
+        {
+          "id": "pi_abc123", "status": "pending", "amount": 42.50, "currency": "GBP",
+          "checkoutUrl": "https://checkout.qint.ch/pay/pi_abc123",
+          "createdAt": "2026-07-08T10:00:00+00:00", "expiresAt": "2026-07-08T10:15:00+00:00",
+          "reversed": false, "underpaid": false,
+          "feeAmount": null, "netAmount": null, "settledAmount": null, "receivedAmount": null,
+          "underpaidBps": null, "creditUsdt": null, "creditRate": null, "creditAsset": null
+        }
+        """;
+        var handler = new MockHttpMessageHandler(HttpStatusCode.OK, json);
+        using var client = ClientWith(handler);
+
+        var intent = await client.GetIntentAsync("pi_abc123");
+
+        Assert.Equal(QintCurrencies.Gbp, intent.Currency);
+        Assert.Null(intent.FeeAmount);
+        Assert.Null(intent.NetAmount);
+        Assert.Null(intent.CreditUsdt);
+        Assert.Null(intent.CreditRate);
+        Assert.Null(intent.CreditAsset);
+        Assert.False(intent.Underpaid);
+        Assert.False(intent.Reversed);
+    }
+
+    [Fact]
+    public async Task GetIntentAsync_UnknownSettlementAsset_IsTolerated()
+    {
+        var json = SampleIntentJson.Replace("\"settledAt\": null", "\"settledAt\": null, \"creditAsset\": \"EURC\", \"creditUsdt\": 1.5");
+        var handler = new MockHttpMessageHandler(HttpStatusCode.OK, json);
+        using var client = ClientWith(handler);
+
+        var intent = await client.GetIntentAsync("pi_abc123");
+
+        Assert.Equal("EURC", intent.CreditAsset);
+        Assert.Equal(1.5m, intent.CreditUsdt);
+    }
+
+    [Fact]
+    public async Task ListCurrenciesAsync_HitsPublicEndpoint_AndParses()
+    {
+        const string json = """
+        {"currencies":[{"code":"CHF","enabled":true},{"code":"EUR","enabled":true},
+                       {"code":"USD","enabled":true},{"code":"GBP","enabled":false},
+                       {"code":"JPY","enabled":true,"label":"future field"}]}
+        """;
+        var handler = new MockHttpMessageHandler(HttpStatusCode.OK, json);
+        using var client = ClientWith(handler);
+
+        var list = await client.ListCurrenciesAsync();
+
+        Assert.Equal(HttpMethod.Get, handler.LastRequest!.Method);
+        Assert.Equal("https://api.qint.ch/api/v1/public/currencies", handler.LastRequest.RequestUri!.AbsoluteUri);
+        Assert.Equal(5, list.Currencies.Count);
+        Assert.Equal(new[] { "CHF", "EUR", "USD", "JPY" }, list.EnabledCodes());
+        Assert.True(list.IsEnabled("chf"));
+        Assert.False(list.IsEnabled(QintCurrencies.Gbp));
+        Assert.False(list.IsEnabled("XYZ"));
+    }
+
+    [Fact]
+    public async Task ListCurrenciesAsync_CustomBaseUrl_ResolvesUnderIt()
+    {
+        var handler = new MockHttpMessageHandler(HttpStatusCode.OK, """{"currencies":[]}""");
+        using var client = new QintClient(ApiKey, new HttpClient(handler), new Uri("https://api.example.test/v1"));
+
+        var list = await client.ListCurrenciesAsync();
+
+        Assert.Equal("https://api.example.test/v1/public/currencies", handler.LastRequest!.RequestUri!.AbsoluteUri);
+        Assert.Empty(list.EnabledCodes());
+    }
+
+    [Fact]
+    public async Task CreateIntentAsync_DisabledCurrency_SurfacesPlain400Detail()
+    {
+        const string problemJson = """
+        {
+          "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+          "title": "An error occurred while processing your request.",
+          "status": 400,
+          "detail": "GBP is currently disabled on Qint. currency must be one of: CHF, EUR, USD.",
+          "traceId": "00-1-2-00"
+        }
+        """;
+        var handler = new MockHttpMessageHandler(HttpStatusCode.BadRequest, problemJson, "application/problem+json");
+        using var client = ClientWith(handler);
+
+        var ex = await Assert.ThrowsAsync<QintApiException>(
+            () => client.CreateIntentAsync(new CreateIntentRequest
+            {
+                Amount = 50m,
+                Currency = QintCurrencies.Gbp,
+                IdempotencyKey = "order-gbp",
+            }));
+
+        Assert.Equal(400, ex.StatusCode);
+        Assert.Null(ex.Code);
+        Assert.Equal("GBP is currently disabled on Qint. currency must be one of: CHF, EUR, USD.", ex.Detail);
+        Assert.Equal(ex.Detail, ex.Message);
+        Assert.Equal("00-1-2-00", ex.TraceId);
+    }
+
+    [Fact]
+    public async Task SettlementAssetMismatch_CodeIsExposed()
+    {
+        const string problemJson = """
+        {"title":"Wrong payout asset","status":400,"detail":"This merchant settles in USDC.","code":"settlement_asset_mismatch"}
+        """;
+        var handler = new MockHttpMessageHandler(HttpStatusCode.BadRequest, problemJson, "application/problem+json");
+        using var client = ClientWith(handler);
+
+        var ex = await Assert.ThrowsAsync<QintApiException>(() => client.GetIntentAsync("pi_x"));
+
+        Assert.Equal(QintErrorCodes.SettlementAssetMismatch, ex.Code);
+        Assert.Equal("settlement_asset_mismatch", QintErrorCodes.SettlementAssetMismatch);
+    }
+
+    [Fact]
+    public void SettlementAssets_ListUsdtAndUsdc()
+    {
+        Assert.Equal(new[] { "USDT", "USDC" }, QintSettlementAssets.All);
+    }
 }
+

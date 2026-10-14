@@ -166,4 +166,72 @@ public class QintWebhooksTests
         Assert.Throws<QintWebhookSignatureException>(
             () => QintWebhooks.ConstructEvent(EventBody, "sha256=deadbeef", Secret));
     }
+
+    // ── ping + unknown event types ───────────────────────────────────────────
+
+    private const string PingBody = """
+    {"type":"ping","endpointId":"3f2c1a9e-5b7d-4e8f-9a1b-2c3d4e5f6a7b","sentAt":"2026-10-14T12:00:00+00:00"}
+    """;
+
+    [Fact]
+    public void ParseWebhook_PaymentStatus_IsTyped()
+    {
+        var evt = QintWebhooks.ParseWebhook(EventBody);
+
+        Assert.Equal(QintWebhooks.PaymentStatusEventType, evt.Type);
+        Assert.NotNull(evt.PaymentStatus);
+        Assert.Null(evt.Ping);
+        Assert.Equal("pi_abc123", evt.PaymentStatus!.IntentId);
+    }
+
+    [Fact]
+    public void ParseWebhook_Ping_IsTyped()
+    {
+        var evt = QintWebhooks.ParseWebhook(PingBody);
+
+        Assert.Equal(QintWebhooks.PingEventType, evt.Type);
+        Assert.Null(evt.PaymentStatus);
+        Assert.NotNull(evt.Ping);
+        Assert.Equal("3f2c1a9e-5b7d-4e8f-9a1b-2c3d4e5f6a7b", evt.Ping!.EndpointId);
+        Assert.Equal(new DateTimeOffset(2026, 10, 14, 12, 0, 0, TimeSpan.Zero), evt.Ping.SentAt);
+    }
+
+    [Fact]
+    public void ParseWebhook_UnknownType_IsTolerated()
+    {
+        const string body = """{"type":"payout.status","payoutId":"po_1","sourceAsset":"USDC"}""";
+
+        var evt = QintWebhooks.ParseWebhook(body);
+
+        Assert.Equal("payout.status", evt.Type);
+        Assert.Null(evt.PaymentStatus);
+        Assert.Null(evt.Ping);
+        Assert.Equal("USDC", evt.Raw.GetProperty("sourceAsset").GetString());
+    }
+
+    [Fact]
+    public void ConstructWebhook_VerifiesPing()
+    {
+        var evt = QintWebhooks.ConstructWebhook(PingBody, Sign(PingBody, Secret), Secret);
+        Assert.NotNull(evt.Ping);
+
+        Assert.Throws<QintWebhookSignatureException>(
+            () => QintWebhooks.ConstructWebhook(PingBody, "sha256=deadbeef", Secret));
+    }
+
+    [Fact]
+    public void ParseEvent_Ping_ThrowsWithPointerToParseWebhook()
+    {
+        var ex = Assert.Throws<System.Text.Json.JsonException>(() => QintWebhooks.ParseEvent(PingBody));
+        Assert.Contains("ParseWebhook", ex.Message);
+    }
+
+    [Fact]
+    public void ParseEvent_UnknownFields_AreTolerated()
+    {
+        var body = EventBody.Replace("\"type\": \"payment.status\",", "\"type\": \"payment.status\", \"creditAsset\": \"USDC\", \"newThing\": [1],");
+        var evt = QintWebhooks.ParseEvent(body);
+        Assert.Equal("pi_abc123", evt.IntentId);
+    }
 }
+

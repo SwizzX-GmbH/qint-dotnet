@@ -63,6 +63,24 @@ var page = await qint.ListIntentsAsync(new ListIntentsOptions
 Console.WriteLine($"{page.Total} settled intents");
 ```
 
+### Currencies that are switched on
+
+Qint can switch a fiat currency off for new payments (and back on) at any time. Creating an
+intent in a disabled currency throws a plain `400` (no `Code`) whose `Detail` names the
+enabled ones, e.g. `GBP is currently disabled on Qint. currency must be one of: CHF, EUR, USD.`
+Read the live list from the public `GET /api/v1/public/currencies` endpoint and hide
+disabled currencies in your checkout. The response is cacheable for 30 seconds — cache it
+on your side rather than calling it on every checkout.
+
+```csharp
+var currencies = await qint.ListCurrenciesAsync();
+IReadOnlyList<string> offered = currencies.EnabledCodes();   // e.g. ["CHF", "EUR", "USD"]
+if (!currencies.IsEnabled(QintCurrencies.Gbp))
+{
+    // don't offer GBP right now
+}
+```
+
 ### Base URL and timeout
 
 The client defaults to `https://api.qint.ch/api/v1` — the stable production
@@ -114,8 +132,9 @@ GBP). Outside that range `CreateIntentAsync` throws a `400` with
 `ex.Code == QintErrorCodes.AmountOutOfRange` (`"amount_out_of_range"`) and the numbers on
 `ex.ProblemDetails.MinChf`, `MaxChf` and `AmountChf`. If no exchange rate is available to
 judge a non-CHF amount it throws a `503` with `ex.Code == QintErrorCodes.RateUnavailable`
-(`"rate_unavailable"`) — retry in a minute. Other problem members are in
-`ex.ProblemDetails.Extensions`.
+(`"rate_unavailable"`) — retry in a minute. Your agreed cap, if Qint set one, replaces the
+CHF 100'000 maximum. `ex.TraceId` is the request correlation id to quote to support; any
+other problem members are in `ex.ProblemDetails.Extensions`.
 
 ```csharp
 catch (QintApiException ex) when (ex.Code == QintErrorCodes.AmountOutOfRange)
@@ -125,16 +144,24 @@ catch (QintApiException ex) when (ex.Code == QintErrorCodes.AmountOutOfRange)
 }
 ```
 
+### Settlement asset
+
+Your balance is held in a stablecoin: **USDC** for merchants registered in the European
+Union (USDT is not authorised under MiCA), **USDT** for everyone else. Once a payment is
+settled and credited, `Intent.CreditUsdt` is the credited amount and `Intent.CreditRate`
+the fiat-per-coin rate, both in `Intent.CreditAsset` (`QintSettlementAssets.Usdt` or
+`QintSettlementAssets.Usdc`). The `CreditUsdt` name predates USDC — for a USDC merchant the
+amount is USDC. `FeeAmount` (Qint's fee) and `NetAmount` (what you are credited, in the
+intent's currency) are set once the payment is settled; all of these are `null` before.
+
 ### Underpaid payments
 
 A payment that comes up short but within your accepted underpayment still settles. The
 `payment.status` webhook then carries `Underpaid = true`, `ReceivedAmount` (the fiat amount
 actually paid, in the intent's currency) and `UnderpaidBps` (how short, in basis points of
-the invoice); both are `null` otherwise. `Intent` declares the same two fields plus
-`FeeAmount`, `NetAmount`, `SettledAmount`, `CreditUsdt`, `CreditRate` and `ReversedAt` — all
-nullable, and `null` whenever the response does not include them. A non-null `ReversedAt`
-means the payment was reversed after settlement: treat it as not paid even though its
-status stays `Settled`.
+the invoice); both are `null` otherwise. `Intent` carries the same `Underpaid` flag and the
+two amounts, plus a `Reversed` flag and `ReversedAt`. `Reversed == true` means the payment
+was reversed after settlement: treat it as not paid even though its status stays `Settled`.
 
 ## Verifying webhooks
 
@@ -183,6 +210,26 @@ app.MapPost("/webhooks/qint", async (HttpRequest request) =>
 var evt = QintWebhooks.ConstructEvent(rawBody, signature, "whsec_...");
 ```
 
+`ParseEvent` / `ConstructEvent` only accept `payment.status`. The dashboard's
+**Send test event** button delivers a signed `ping`, and Qint may add event types later —
+to handle every delivery use `ConstructWebhook` (or `ParseWebhook`), which never fails on
+an unknown type:
+
+```csharp
+var webhook = QintWebhooks.ConstructWebhook(rawBody, signature, "whsec_...");
+switch (webhook.Type)
+{
+    case QintWebhooks.PaymentStatusEventType:
+        var evt = webhook.PaymentStatus!;   // fulfil on evt.Status == Settled && !evt.Reversed
+        break;
+    case QintWebhooks.PingEventType:
+        break;                              // test event: just acknowledge
+    default:
+        break;                              // unknown type: acknowledge and ignore (webhook.Raw has the body)
+}
+return Results.Ok();
+```
+
 ## API surface
 
 ```csharp
@@ -193,13 +240,21 @@ new QintClient(string apiKey, string baseUrl, TimeSpan? timeout = null);
 
 Task<Intent>     QintClient.CreateIntentAsync(CreateIntentRequest request, CancellationToken ct = default);
 Task<Intent>     QintClient.GetIntentAsync(string id, CancellationToken ct = default);
-Task<IntentList> QintClient.ListIntentsAsync(ListIntentsOptions? options = null, CancellationToken ct = default);
+Task<IntentList>   QintClient.ListIntentsAsync(ListIntentsOptions? options = null, CancellationToken ct = default);
+Task<CurrencyList> QintClient.ListCurrenciesAsync(CancellationToken ct = default);   // public, no scope needed
 
 // Webhooks
 bool               QintWebhooks.VerifyWebhookSignature(string rawBody, string? signatureHeader, string secret);
 bool               QintWebhooks.VerifyWebhookSignature(ReadOnlySpan<byte> rawBody, string? signatureHeader, string secret);
 PaymentStatusEvent QintWebhooks.ParseEvent(string rawBody);
 PaymentStatusEvent QintWebhooks.ConstructEvent(string rawBody, string? signatureHeader, string secret);
+WebhookEvent       QintWebhooks.ParseWebhook(string rawBody);
+WebhookEvent       QintWebhooks.ConstructWebhook(string rawBody, string? signatureHeader, string secret);
+
+// Constants
+QintCurrencies.{Chf, Eur, Usd, Gbp, All}
+QintSettlementAssets.{Usdt, Usdc, All}
+QintErrorCodes.{AmountOutOfRange, RateUnavailable, SettlementAssetMismatch}
 ```
 
 Statuses (`IntentStatus`): `Initiated`, `Pending`, `Confirmed`, `Settled`, `Failed`,

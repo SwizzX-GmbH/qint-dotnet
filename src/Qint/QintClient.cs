@@ -119,6 +119,25 @@ public sealed class QintClient : IDisposable
         return await SendAsync<IntentList>(message, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Lists every fiat currency Qint knows and whether it is offered for <b>new</b> payments
+    /// right now (<c>GET /api/v1/public/currencies</c>). Use it to hide disabled currencies
+    /// from your checkout: creating an intent in a disabled currency fails with HTTP 400.
+    /// </summary>
+    /// <remarks>
+    /// The endpoint is public (no API key needed; the client's key is sent but ignored) and
+    /// cacheable for 30 seconds — cache the result on your side rather than calling it on
+    /// every checkout.
+    /// </remarks>
+    /// <param name="cancellationToken">A token to cancel the request.</param>
+    /// <returns>The <see cref="CurrencyList"/>, in display order.</returns>
+    /// <exception cref="QintApiException">The API returned a non-2xx response.</exception>
+    public async Task<CurrencyList> ListCurrenciesAsync(CancellationToken cancellationToken = default)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Get, new Uri(_baseUrl, "public/currencies"));
+        return await SendAsync<CurrencyList>(message, cancellationToken).ConfigureAwait(false);
+    }
+
     private Uri BuildListUri(ListIntentsOptions? options)
     {
         var query = new List<string>(3);

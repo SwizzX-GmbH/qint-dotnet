@@ -11,7 +11,7 @@
   <!-- NuGet package metadata -->
   <PropertyGroup>
     <PackageId>Qint</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>SwizzX GmbH</Authors>
     <Company>SwizzX GmbH</Company>
     <Product>Qint .NET SDK</Product>
@@ -23,7 +23,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>qint;payments;crypto;stablecoin;webhooks;fintech;sdk;switzerland</PackageTags>
-    <PackageReleaseNotes>Initial 0.1.0 release: typed QintClient (create/get/list intents) and webhook signature verification helpers.</PackageReleaseNotes>
+    <PackageReleaseNotes>0.2.0: ListCurrenciesAsync (GET /public/currencies), Intent.CreditAsset (USDT/USDC) + Reversed/Underpaid flags, ping and unknown webhook events via ParseWebhook/ConstructWebhook, TraceId and settlement_asset_mismatch on errors. See CHANGELOG.md.</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
