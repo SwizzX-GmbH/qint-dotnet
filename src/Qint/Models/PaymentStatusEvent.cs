@@ -64,4 +64,19 @@ public sealed record PaymentStatusEvent
 
     /// <summary>When the payment was reversed after settlement, if it was.</summary>
     public DateTimeOffset? ReversedAt { get; init; }
+
+    /// <summary>
+    /// The amount credited to the merchant balance, in <see cref="CreditCurrency"/> (2 decimal
+    /// places). Filled on the settled event; null before.
+    /// </summary>
+    public decimal? CreditAmount { get; init; }
+
+    /// <summary>The merchant's Account Currency the credit is in. Null until credited.</summary>
+    public string? CreditCurrency { get; init; }
+
+    /// <summary>
+    /// Units of <see cref="CreditCurrency"/> per 1 unit of <see cref="Currency"/> (1 when they
+    /// match). Null until credited.
+    /// </summary>
+    public decimal? CreditRate { get; init; }
 }

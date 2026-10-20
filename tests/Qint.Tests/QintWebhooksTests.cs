@@ -124,6 +124,9 @@ public class QintWebhooksTests
           "paymentLinkId": null,
           "reversed": false,
           "reversedAt": null,
+          "creditAmount": 109.83,
+          "creditCurrency": "CHF",
+          "creditRate": 1.1207,
           "occurredAt": "2026-07-08T10:15:00+00:00"
         }
         """;
@@ -131,6 +134,9 @@ public class QintWebhooksTests
         var evt = QintWebhooks.ParseEvent(body);
 
         Assert.Equal("GBP", evt.Currency);
+        Assert.Equal(109.83m, evt.CreditAmount);
+        Assert.Equal("CHF", evt.CreditCurrency);
+        Assert.Equal(1.1207m, evt.CreditRate);
         Assert.True(evt.Underpaid);
         Assert.Equal(98.00m, evt.ReceivedAmount);
         Assert.Equal(200, evt.UnderpaidBps);
@@ -149,6 +155,9 @@ public class QintWebhooksTests
         Assert.Null(evt.UnderpaidBps);
         Assert.Null(evt.ReversedAt);
         Assert.False(evt.Reversed);
+        Assert.Null(evt.CreditAmount);
+        Assert.Null(evt.CreditCurrency);
+        Assert.Null(evt.CreditRate);
     }
 
     [Fact]
@@ -229,7 +238,7 @@ public class QintWebhooksTests
     [Fact]
     public void ParseEvent_UnknownFields_AreTolerated()
     {
-        var body = EventBody.Replace("\"type\": \"payment.status\",", "\"type\": \"payment.status\", \"creditAsset\": \"USDC\", \"newThing\": [1],");
+        var body = EventBody.Replace("\"type\": \"payment.status\",", "\"type\": \"payment.status\", \"futureField\": \"x\", \"newThing\": [1],");
         var evt = QintWebhooks.ParseEvent(body);
         Assert.Equal("pi_abc123", evt.IntentId);
     }

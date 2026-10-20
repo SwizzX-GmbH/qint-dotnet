@@ -162,8 +162,9 @@ public class QintClientTests
           "settledAmount": null,
           "receivedAmount": 98.00,
           "underpaidBps": 200,
-          "creditUsdt": 108.9,
-          "creditRate": 0.8909,
+          "creditAmount": 109.83,
+          "creditCurrency": "CHF",
+          "creditRate": 1.1207,
           "reversedAt": "2026-07-09T09:00:00+00:00"
         }
         """;
@@ -178,8 +179,9 @@ public class QintClientTests
         Assert.Null(intent.SettledAmount);
         Assert.Equal(98.00m, intent.ReceivedAmount);
         Assert.Equal(200, intent.UnderpaidBps);
-        Assert.Equal(108.9m, intent.CreditUsdt);
-        Assert.Equal(0.8909m, intent.CreditRate);
+        Assert.Equal(109.83m, intent.CreditAmount);
+        Assert.Equal("CHF", intent.CreditCurrency);
+        Assert.Equal(1.1207m, intent.CreditRate);
         Assert.Equal(new DateTimeOffset(2026, 7, 9, 9, 0, 0, TimeSpan.Zero), intent.ReversedAt);
     }
 
@@ -196,7 +198,8 @@ public class QintClientTests
         Assert.Null(intent.SettledAmount);
         Assert.Null(intent.ReceivedAmount);
         Assert.Null(intent.UnderpaidBps);
-        Assert.Null(intent.CreditUsdt);
+        Assert.Null(intent.CreditAmount);
+        Assert.Null(intent.CreditCurrency);
         Assert.Null(intent.CreditRate);
         Assert.Null(intent.ReversedAt);
     }
@@ -417,7 +420,7 @@ public class QintClientTests
     // ── 2026-10 API sync ─────────────────────────────────────────────────────
 
     [Fact]
-    public async Task GetIntentAsync_SettledUsdcIntent_MapsCreditAssetAndFlags()
+    public async Task GetIntentAsync_SettledEurIntent_MapsFiatCreditAndFlags()
     {
         const string json = """
         {
@@ -430,7 +433,7 @@ public class QintClientTests
           "reversed": false, "underpaid": true,
           "feeAmount": 0.50, "netAmount": 99.20, "settledAmount": 99.70,
           "receivedAmount": 99.70, "underpaidBps": 30,
-          "creditUsdt": 108.123456, "creditRate": 0.9175, "creditAsset": "USDC",
+          "creditAmount": 93.42, "creditCurrency": "CHF", "creditRate": 0.9389,
           "someFutureField": {"nested": [1, 2, 3]}
         }
         """;
@@ -440,9 +443,9 @@ public class QintClientTests
         var intent = await client.GetIntentAsync("pi_eu1");
 
         Assert.Equal(IntentStatus.Settled, intent.Status);
-        Assert.Equal(QintSettlementAssets.Usdc, intent.CreditAsset);
-        Assert.Equal(108.123456m, intent.CreditUsdt);
-        Assert.Equal(0.9175m, intent.CreditRate);
+        Assert.Equal(93.42m, intent.CreditAmount);
+        Assert.Equal("CHF", intent.CreditCurrency);
+        Assert.Equal(0.9389m, intent.CreditRate);
         Assert.Equal(0.50m, intent.FeeAmount);
         Assert.Equal(99.20m, intent.NetAmount);
         Assert.True(intent.Underpaid);
@@ -460,7 +463,7 @@ public class QintClientTests
           "createdAt": "2026-07-08T10:00:00+00:00", "expiresAt": "2026-07-08T10:15:00+00:00",
           "reversed": false, "underpaid": false,
           "feeAmount": null, "netAmount": null, "settledAmount": null, "receivedAmount": null,
-          "underpaidBps": null, "creditUsdt": null, "creditRate": null, "creditAsset": null
+          "underpaidBps": null, "creditAmount": null, "creditCurrency": null, "creditRate": null
         }
         """;
         var handler = new MockHttpMessageHandler(HttpStatusCode.OK, json);
@@ -471,24 +474,24 @@ public class QintClientTests
         Assert.Equal(QintCurrencies.Gbp, intent.Currency);
         Assert.Null(intent.FeeAmount);
         Assert.Null(intent.NetAmount);
-        Assert.Null(intent.CreditUsdt);
+        Assert.Null(intent.CreditAmount);
+        Assert.Null(intent.CreditCurrency);
         Assert.Null(intent.CreditRate);
-        Assert.Null(intent.CreditAsset);
         Assert.False(intent.Underpaid);
         Assert.False(intent.Reversed);
     }
 
     [Fact]
-    public async Task GetIntentAsync_UnknownSettlementAsset_IsTolerated()
+    public async Task GetIntentAsync_UnknownCreditCurrency_IsTolerated()
     {
-        var json = SampleIntentJson.Replace("\"settledAt\": null", "\"settledAt\": null, \"creditAsset\": \"EURC\", \"creditUsdt\": 1.5");
+        var json = SampleIntentJson.Replace("\"settledAt\": null", "\"settledAt\": null, \"creditCurrency\": \"SEK\", \"creditAmount\": 1.5");
         var handler = new MockHttpMessageHandler(HttpStatusCode.OK, json);
         using var client = ClientWith(handler);
 
         var intent = await client.GetIntentAsync("pi_abc123");
 
-        Assert.Equal("EURC", intent.CreditAsset);
-        Assert.Equal(1.5m, intent.CreditUsdt);
+        Assert.Equal("SEK", intent.CreditCurrency);
+        Assert.Equal(1.5m, intent.CreditAmount);
     }
 
     [Fact]
@@ -568,12 +571,6 @@ public class QintClientTests
 
         Assert.Equal(QintErrorCodes.SettlementAssetMismatch, ex.Code);
         Assert.Equal("settlement_asset_mismatch", QintErrorCodes.SettlementAssetMismatch);
-    }
-
-    [Fact]
-    public void SettlementAssets_ListUsdtAndUsdc()
-    {
-        Assert.Equal(new[] { "USDT", "USDC" }, QintSettlementAssets.All);
     }
 }
 

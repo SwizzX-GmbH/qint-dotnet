@@ -144,15 +144,18 @@ catch (QintApiException ex) when (ex.Code == QintErrorCodes.AmountOutOfRange)
 }
 ```
 
-### Settlement asset
+### Account Currency and the credit
 
-Your balance is held in a stablecoin: **USDC** for merchants registered in the European
-Union (USDT is not authorised under MiCA), **USDT** for everyone else. Once a payment is
-settled and credited, `Intent.CreditUsdt` is the credited amount and `Intent.CreditRate`
-the fiat-per-coin rate, both in `Intent.CreditAsset` (`QintSettlementAssets.Usdt` or
-`QintSettlementAssets.Usdc`). The `CreditUsdt` name predates USDC — for a USDC merchant the
-amount is USDC. `FeeAmount` (Qint's fee) and `NetAmount` (what you are credited, in the
-intent's currency) are set once the payment is settled; all of these are `null` before.
+Your balance is held in fiat, in your **Account Currency** (CHF by default; EUR, USD or GBP
+are possible). The amount a payment adds to it is fixed when the buyer is quoted, never by a
+rate read at settlement. Once a payment is settled and credited, `Intent.CreditAmount` is the
+amount added to your balance (2 decimal places), `Intent.CreditCurrency` the currency it is in
+(your Account Currency at quote time), and `Intent.CreditRate` the units of `CreditCurrency`
+per 1 unit of the invoice `Currency` (`1` when they match). `FeeAmount` (Qint's fee) and
+`NetAmount` (what you are credited, in the intent's currency) are set once the payment is
+settled; all of these are `null` before, and the three credit fields stay `null` on payments
+settled before the fiat balance (20 October 2026). The `payment.status` webhook carries the
+same three credit fields, filled on the settled event.
 
 ### Underpaid payments
 
@@ -253,7 +256,6 @@ WebhookEvent       QintWebhooks.ConstructWebhook(string rawBody, string? signatu
 
 // Constants
 QintCurrencies.{Chf, Eur, Usd, Gbp, All}
-QintSettlementAssets.{Usdt, Usdc, All}
 QintErrorCodes.{AmountOutOfRange, RateUnavailable, SettlementAssetMismatch}
 ```
 

@@ -11,7 +11,7 @@
   <!-- NuGet package metadata -->
   <PropertyGroup>
     <PackageId>Qint</PackageId>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Authors>SwizzX GmbH</Authors>
     <Company>SwizzX GmbH</Company>
     <Product>Qint .NET SDK</Product>

@@ -24,9 +24,9 @@ public static class QintErrorCodes
     public const string RateUnavailable = "rate_unavailable";
 
     /// <summary>
-    /// HTTP 400 from the payout endpoints of the dashboard API (not the merchant API): a crypto
-    /// payout was requested in an asset other than the merchant's settlement asset
-    /// (see <see cref="QintSettlementAssets"/>). Listed for completeness.
+    /// HTTP 400 from the payout endpoints of the dashboard API (not the merchant API), crypto
+    /// payouts only: a crypto payout was requested in an asset other than the merchant's crypto
+    /// payout asset. Listed for completeness.
     /// </summary>
     public const string SettlementAssetMismatch = "settlement_asset_mismatch";
 }

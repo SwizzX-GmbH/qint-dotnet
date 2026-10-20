@@ -2,6 +2,28 @@
 
 All notable changes to the Qint .NET SDK. Versions follow [semver](https://semver.org/).
 
+## 0.3.0 — 2026-10-20
+
+Follows the Qint API change of 20 October 2026: the merchant balance is now held in fiat, in
+the merchant's Account Currency, instead of a stablecoin.
+
+### Breaking
+- `Intent.CreditUsdt` and `Intent.CreditAsset` are **removed** (the API no longer sends them).
+- `Intent.CreditRate` keeps its name but **changes meaning**: units of `CreditCurrency` per 1
+  unit of the invoice `Currency` (1 when they match). It used to be fiat per stablecoin unit.
+- `QintSettlementAssets` is removed.
+
+### Added
+- `Intent.CreditAmount` (2 dp) and `Intent.CreditCurrency` (the Account Currency at quote
+  time): what the payment added to the balance. Null until credited and on payments settled
+  before 20 October 2026.
+- `PaymentStatusEvent.CreditAmount`, `CreditCurrency` and `CreditRate`, filled on the settled
+  event.
+
+### Changed
+- `QintErrorCodes.SettlementAssetMismatch` stays; it now concerns crypto payouts only.
+- README: "Settlement asset" replaced by "Account Currency and the credit".
+
 ## 0.2.0 — 2026-10-14
 
 Brings the SDK in line with the Qint merchant API as of 14 October 2026.

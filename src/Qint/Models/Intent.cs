@@ -86,19 +86,22 @@ public sealed record Intent
     public int? UnderpaidBps { get; init; }
 
     /// <summary>
-    /// The amount credited to the merchant balance for this payment, in <see cref="CreditAsset"/>
-    /// (6 decimal places). The name predates USDC: for a merchant settling in USDC this is USDC.
-    /// Null until the payment is settled and credited.
+    /// The amount credited to the merchant balance for this payment, in <see cref="CreditCurrency"/>
+    /// (2 decimal places). Null until the payment is settled and credited, and on payments settled
+    /// before the fiat balance (20 October 2026).
     /// </summary>
-    public decimal? CreditUsdt { get; init; }
-
-    /// <summary>Fiat units of <see cref="Currency"/> per 1 unit of <see cref="CreditAsset"/> used for the credit. Null until credited.</summary>
-    public decimal? CreditRate { get; init; }
+    public decimal? CreditAmount { get; init; }
 
     /// <summary>
-    /// The stablecoin the credit was booked in — the merchant's settlement asset at the moment of
-    /// crediting: <see cref="QintSettlementAssets.Usdc"/> for merchants registered in the EU,
-    /// <see cref="QintSettlementAssets.Usdt"/> otherwise. Null until credited.
+    /// The merchant's Account Currency at the moment the buyer was quoted — the currency
+    /// <see cref="CreditAmount"/> is in (e.g. <c>CHF</c>). A string, so a currency added later still
+    /// deserializes. Null until credited.
     /// </summary>
-    public string? CreditAsset { get; init; }
+    public string? CreditCurrency { get; init; }
+
+    /// <summary>
+    /// Units of <see cref="CreditCurrency"/> per 1 unit of <see cref="Currency"/>, fixed when the
+    /// buyer was quoted (1 when the two match). Null until credited.
+    /// </summary>
+    public decimal? CreditRate { get; init; }
 }
